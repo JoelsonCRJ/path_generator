@@ -12,6 +12,8 @@ from actionlib_msgs.msg import GoalStatus
 #from std_msgs.msg import Float32
 from geometry_msgs.msg import Pose, Point, PoseStamped, Quaternion
 from std_srvs.srv import EmptyResponse, Empty
+from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 from tf.transformations import euler_from_quaternion as efq
 from tf.transformations import quaternion_from_euler as qfe
 from threading import Lock
@@ -40,7 +42,7 @@ class GoalsFromCsv():
 		self.goal_rate = self.rospy.get_param("~path_rate", 10)
 		self.goal_tolerances = {"xy": self.rospy.get_param("~goal_tolerances/xy", 0.3),
 								"theta": self.rospy.get_param("~goal_tolerances/theta", 0.45)}
-		self.csv_file = self.rospy.get_param("~csv_file","/home/walker/catkin_ws/src/path_generator/config/paths/path_points.csv")
+		self.csv_file = self.rospy.get_param("~csv_file","/home/joelson/catkin_ws/src/path_generator/config/paths/path_points_0.csv")
 		self.csv_header = self.rospy.get_param("~csv_header",True)
 		self.odom_topic = self.rospy.get_param("~odom_topic", "/odometry/filtered")
 		self.frame_id = self.rospy.get_param("~frame_id","odom")
@@ -52,6 +54,8 @@ class GoalsFromCsv():
 
 	def initSubscribers(self):
 		#self.sub_odom = self.rospy.Subscriber(self.odom_topic, Odometry, self.callback_odom)
+		# self.subPose = self.rospy.Subscriber("/odom", Odometry ,self.get_current_pose)
+		self.subPath = self.rospy.Subscriber("/path",String,self.get_new_path)
 		return
 
 	def initPublishers(self):
@@ -87,6 +91,24 @@ class GoalsFromCsv():
 		self.qz_goal, self.qw_goal = 0, 0
 		self.theta_goal = 0
 		self.exit = False
+		# self.current_pose = Odometry()
+		self.newPath = String()
+		self.StartFlag = False
+		return
+
+	# def get_current_pose(self,msg):
+	# 	self.current_pose.position.x = msg.pose.pose.position.x
+	# 	self.current_pose.position.y = msg.pose.pose.position.y
+	# 	self.current_pose.orientation.z=msg.pose.pose.orientation.z
+	# 	self.current_pose.orientation.w=msg.pose.pose.orientation.w
+	# 	return
+
+	def get_new_path(self,msg):
+		self.newPath=msg
+		if (self.newPath != 'a'):
+			self.StartFlag=True
+		else:
+			self.StartFlag=False 
 		return
 
 	def callback_update_params(self, req):
@@ -108,6 +130,7 @@ class GoalsFromCsv():
 	def read_file(self):
 		try:
 			with open(self.csv_file) as csv_file:
+				self.goals_number=0
 				csv_reader = csv.reader(csv_file, delimiter=',')
 				for line_counter, row in enumerate(csv_reader):
 					if line_counter > 0:
@@ -116,7 +139,7 @@ class GoalsFromCsv():
 							self.goals = row_i
 						else:
 							self.goals = np.concatenate((self.goals, row_i))
-				self.goals_number = self.goals.size
+				self.goals_number = (self.goals.size/4)
 			self.read_flag = True
 		except Exception as e:
 			print(e)
@@ -146,6 +169,8 @@ class GoalsFromCsv():
 		self.msg_goal.target_pose.pose = self.msg_pose
 		return
 
+	
+
 	def publish_goal(self):
 		self.get_current_goal()
 		self.make_msg_header()
@@ -169,10 +194,12 @@ class GoalsFromCsv():
 			self.rospy.loginfo("[%s] The goal with ID %d received a cancel request after it started executing", self.name, self.goal_id)
 		elif status == 3:
 			self.rospy.loginfo("[%s] Reached Goal %d successfully", self.name, self.goal_id)
+			self.rospy.loginfo(" Goals number [%d] ", self.goals_number)
 			self.goal_id += 1
 			self.goal_published = False
-			if self.goal_id > self.goals_number - 1:
+			if self.goal_id == self.goals_number:
 				self.rospy.loginfo("[%s] Reached final goal", self.name)
+				# self.goal_id=0
 				self.final_goal_reached = True
 				return
 		elif status == 4:
@@ -199,23 +226,36 @@ class GoalsFromCsv():
 		self.rospy.loginfo("[%s] Configuration OK", self.name)
 		if self.wait:
 			self.rospy.loginfo("[%s] Connected to move base server", self.name)
-			self.read_file()
-			if self.read_flag:
-				self.rospy.loginfo("[%s] Reading CSV file OK", self.name)
-				while not self.rospy.is_shutdown() and not self.exit:
-					if not self.final_goal_reached:
-						if not self.goal_published:
-							self.publish_goal()
+
+			while not self.rospy.is_shutdown(): 
+				if self.StartFlag:
+					self.read_file()
+					if self.read_flag:
+						self.rospy.loginfo("[%s] Reading CSV file OK . Exit flag[%d]", self.name,self.exit)
+						self.exit=False
+						self.rospy.loginfo("[%s] exit flag [%d]", self.name,self.exit)
+						while not self.rospy.is_shutdown() and not self.exit:
+							if not self.final_goal_reached:
+								if not self.goal_published:
+									self.publish_goal()
+							else:
+								if self.goals_loop:
+									self.goal_id=0
+									self.final_goal_reached = False
+								else:
+									self.exit = True
+									self.StartFlag = False
+									self.goal_id = 0
+									self.goals_number=0
+									self.final_goal_reached = False
+									self.goal_published = False
+							self.rate.sleep()			
 					else:
-						if self.goals_loop:
-							self.goal_id = 0
-							self.final_goal_reached = False
-						else:
-							self.exit = True
-					self.rate.sleep()
-			else:
-				self.rospy.logerr("[%s] Reading CSV failed", self.name)
-				self.rospy.logwarn("[%s] Exiting due to CSV reading error", self.name)
+						self.rospy.logerr("[%s] Reading CSV failed", self.name)
+						self.rospy.logwarn("[%s] Exiting due to CSV reading error", self.name)
+				else:
+					self.rospy.logwarn_throttle(3,"waiting new path to start the path_generetor")
+				self.rate.sleep()
 		else:
 			self.rospy.logerr("Action server not available!")
 
