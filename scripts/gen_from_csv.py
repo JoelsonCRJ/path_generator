@@ -44,7 +44,7 @@ class GoalsFromCsv():
 								"theta": self.rospy.get_param("~goal_tolerances/theta", 0.45)}
 		self.csv_file = self.rospy.get_param("~csv_file","/home/joelson/catkin_ws/src/path_generator/config/paths/path_points_0.csv")
 		self.csv_header = self.rospy.get_param("~csv_header",True)
-		self.odom_topic = self.rospy.get_param("~odom_topic", "/odometry/filtered")
+		self.odom_topic = self.rospy.get_param("~odom_topic", "/odom")
 		self.frame_id = self.rospy.get_param("~frame_id","odom")
 		self.updateParamsService = self.name + self.rospy.get_param("~update_params_service", "/update_parameters")
 		self.wait_time = self.rospy.get_param("~wait_time", 5.0)
@@ -53,8 +53,7 @@ class GoalsFromCsv():
 		return
 
 	def initSubscribers(self):
-		#self.sub_odom = self.rospy.Subscriber(self.odom_topic, Odometry, self.callback_odom)
-		# self.subPose = self.rospy.Subscriber("/odom", Odometry ,self.get_current_pose)
+		self.sub_odom = self.rospy.Subscriber(self.odom_topic, Odometry, self.callback_odom)
 		self.subPath = self.rospy.Subscriber("/path",String,self.get_new_path)
 		return
 
@@ -91,7 +90,7 @@ class GoalsFromCsv():
 		self.qz_goal, self.qw_goal = 0, 0
 		self.theta_goal = 0
 		self.exit = False
-		# self.current_pose = Odometry()
+		self.current_pose = Odometry()
 		self.newPath = String()
 		self.StartFlag = False
 		return
@@ -194,13 +193,18 @@ class GoalsFromCsv():
 			self.rospy.loginfo("[%s] The goal with ID %d received a cancel request after it started executing", self.name, self.goal_id)
 		elif status == 3:
 			self.rospy.loginfo("[%s] Reached Goal %d successfully", self.name, self.goal_id)
-			self.rospy.loginfo(" Goals number [%d] ", self.goals_number)
+			# self.rospy.loginfo("[%s] Pose: [x,y,qz,qw][[%f] [%f][%f][%f]]",self.name,self.x_bot,self.y_bot,self.qw_bot,self.qw_bot)
+			self.rospy.loginfo("[%s] Target Pose:  [x,y,theta] [[%f] [%f][%f]]",self.name,self.x_goal,self.y_goal,self.theta_goal)
+			self.rospy.loginfo("[%s] Robot Pose:  [x,y,theta] [[%f] [%f][%f]]",self.name,self.x_bot,self.y_bot,self.theta_bot)
+			# self.rospy.loginfo(" Goals number [%d] ", self.goals_number)
 			self.goal_id += 1
 			self.goal_published = False
 			if self.goal_id == self.goals_number:
 				self.rospy.loginfo("[%s] Reached final goal", self.name)
-				# self.goal_id=0
 				self.final_goal_reached = True
+				# self.rospy.loginfo("[%s] Pose: [x,y,qz,qw][[%f] [%f][%f][%f]]",self.name,self.x_bot,self.y_bot,self.qw_bot,self.qw_bot)
+				# self.rospy.loginfo("[%s] Target Pose:  [x,y,theta] [[%f] [%f][%f]]",self.name,self.x_goal,self.y_goal,self.theta_goal)
+				# self.rospy.loginfo("[%s] Robot Pose:  [x,y,theta] [[%f] [%f][%f]]",self.name,self.x_bot,self.y_bot,self.theta_bot)
 				return
 		elif status == 4:
 			self.rospy.loginfo("[%s] The goal with ID %d was aborted by the Action Server", self.name, self.goal_id)

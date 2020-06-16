@@ -1,5 +1,6 @@
 goals_loop: false
 goal_topic: /move_base_simple/goal
+odom_topic: /odom
 path_rate: 10
 goal_tolerances:
     xy: 0.3
