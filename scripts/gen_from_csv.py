@@ -258,7 +258,7 @@ class GoalsFromCsv():
 						self.rospy.logerr("[%s] Reading CSV failed", self.name)
 						self.rospy.logwarn("[%s] Exiting due to CSV reading error", self.name)
 				else:
-					self.rospy.logwarn_throttle(3,"waiting new path to start the path_generetor")
+					self.rospy.logwarn_throttle(3,"waiting new path message in the /path topic to start the path_generetor")
 				self.rate.sleep()
 		else:
 			self.rospy.logerr("Action server not available!")
