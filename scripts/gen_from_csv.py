@@ -43,6 +43,8 @@ class GoalsFromCsv():
 		self.goal_tolerances = {"xy": self.rospy.get_param("~goal_tolerances/xy", 0.3),
 								"theta": self.rospy.get_param("~goal_tolerances/theta", 0.45)}
 		self.csv_file = self.rospy.get_param("~csv_file","/home/joelson/catkin_ws/src/path_generator/config/paths/path_points_0.csv")
+		self.csv_file_2 = self.rospy.get_param("~csv_file_2","/home/joelson/catkin_ws/src/path_generator/config/paths/path_points.csv")
+		
 		self.csv_header = self.rospy.get_param("~csv_header",True)
 		self.odom_topic = self.rospy.get_param("~odom_topic", "/odom")
 		self.frame_id = self.rospy.get_param("~frame_id","odom")
@@ -95,17 +97,11 @@ class GoalsFromCsv():
 		self.StartFlag = False
 		return
 
-	# def get_current_pose(self,msg):
-	# 	self.current_pose.position.x = msg.pose.pose.position.x
-	# 	self.current_pose.position.y = msg.pose.pose.position.y
-	# 	self.current_pose.orientation.z=msg.pose.pose.orientation.z
-	# 	self.current_pose.orientation.w=msg.pose.pose.orientation.w
-	# 	return
-
 	def get_new_path(self,msg):
 		self.newPath=msg
-		if (self.newPath != 'a'):
+		if (self.newPath.data == "Rectangle" or self.newPath.data == "Triangle"):
 			self.StartFlag=True
+
 		else:
 			self.StartFlag=False 
 		return
@@ -127,22 +123,40 @@ class GoalsFromCsv():
 		return
 
 	def read_file(self):
-		try:
-			with open(self.csv_file) as csv_file:
-				self.goals_number=0
-				csv_reader = csv.reader(csv_file, delimiter=',')
-				for line_counter, row in enumerate(csv_reader):
-					if line_counter > 0:
-						row_i = np.reshape(map(float, np.array(row)), (1, 4))
-						if line_counter == 1:
-							self.goals = row_i
-						else:
-							self.goals = np.concatenate((self.goals, row_i))
-				self.goals_number = (self.goals.size/4)
-			self.read_flag = True
-		except Exception as e:
-			print(e)
-			self.read_flag = False
+		if(self.newPath.data=="Rectangle"):
+			try:
+				with open(self.csv_file) as csv_file:
+					self.goals_number=0
+					csv_reader = csv.reader(csv_file, delimiter=',')
+					for line_counter, row in enumerate(csv_reader):
+						if line_counter > 0:
+							row_i = np.reshape(map(float, np.array(row)), (1, 4))
+							if line_counter == 1:
+								self.goals = row_i
+							else:
+								self.goals = np.concatenate((self.goals, row_i))
+					self.goals_number = (self.goals.size/4)
+				self.read_flag = True
+			except Exception as e:
+				print(e)
+				self.read_flag = False
+		elif(self.newPath.data=="Triangle"):
+			try:
+				with open(self.csv_file_2) as csv_file:
+					self.goals_number=0
+					csv_reader = csv.reader(csv_file, delimiter=',')
+					for line_counter, row in enumerate(csv_reader):
+						if line_counter > 0:
+							row_i = np.reshape(map(float, np.array(row)), (1, 4))
+							if line_counter == 1:
+								self.goals = row_i
+							else:
+								self.goals = np.concatenate((self.goals, row_i))
+					self.goals_number = (self.goals.size/4)
+				self.read_flag = True
+			except Exception as e:
+				print(e)
+				self.read_flag = False
 		return
 
 	def get_current_goal(self):

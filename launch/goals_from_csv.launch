@@ -2,5 +2,6 @@
 	<node name="gen_from_csv" pkg="path_generator" type="gen_from_csv.py" output="screen">
 		<rosparam file="$(find path_generator)/config/goals_from_csv.yaml" command="load"/>
 		<param name="csv_file" type="string" value="$(find path_generator)/config/paths/path_points_0.csv"/>
+		<param name="csv_file_2" type="string" value="$(find path_generator)/config/paths/path_points.csv"/>
 	</node>
 </launch>
