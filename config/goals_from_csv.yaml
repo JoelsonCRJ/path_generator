@@ -1,12 +1,12 @@
 goals_loop: false
 goal_topic: /move_base_simple/goal
 odom_topic: /odom
-path_rate: 10
+path_rate: 20
 goal_tolerances:
-    xy: 0.3
-    theta: 0.45
+    xy: 0.5
+    theta: 0.58
 csv_header: true
 frame_id: odom #map
 update_params_service: /update_parameters
-wait_time: 5 #15
-delay_time: 5 #10
+wait_time: 1 #15
+delay_time: 1 #10

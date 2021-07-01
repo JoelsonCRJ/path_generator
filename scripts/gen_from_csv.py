@@ -42,8 +42,8 @@ class GoalsFromCsv():
 		self.goal_rate = self.rospy.get_param("~path_rate", 10)
 		self.goal_tolerances = {"xy": self.rospy.get_param("~goal_tolerances/xy", 0.3),
 								"theta": self.rospy.get_param("~goal_tolerances/theta", 0.45)}
-		self.csv_file = self.rospy.get_param("~csv_file","/home/joelson/catkin_ws/src/path_generator/config/paths/path_points_0.csv")
-		self.csv_file_2 = self.rospy.get_param("~csv_file_2","/home/joelson/catkin_ws/src/path_generator/config/paths/path_points.csv")
+		self.csv_file = self.rospy.get_param("~csv_file","/home/nta/catkin_ws/src/path_generator/config/paths/path_points_0.csv")
+		self.csv_file_2 = self.rospy.get_param("~csv_file_2","/home/nta/catkin_ws/src/path_generator/config/paths/path_points.csv")
 		
 		self.csv_header = self.rospy.get_param("~csv_header",True)
 		self.odom_topic = self.rospy.get_param("~odom_topic", "/odom")
@@ -61,6 +61,7 @@ class GoalsFromCsv():
 
 	def initPublishers(self):
 		self.pub_goal = self.rospy.Publisher(self.goal_topic, PoseStamped, queue_size = 5)
+		self.pub_result=self.rospy.Publisher("/path_result",String,queue_size=1000)
 		return
 
 	def initServiceClients(self):
@@ -95,6 +96,8 @@ class GoalsFromCsv():
 		self.current_pose = Odometry()
 		self.newPath = String()
 		self.StartFlag = False
+		self.target_string = String()
+		self.robot_string=String()
 		return
 
 	def get_new_path(self,msg):
@@ -129,8 +132,12 @@ class GoalsFromCsv():
 					self.goals_number=0
 					csv_reader = csv.reader(csv_file, delimiter=',')
 					for line_counter, row in enumerate(csv_reader):
-						if line_counter > 0:
-							row_i = np.reshape(map(float, np.array(row)), (1, 4))
+						if line_counter > 0 and row !=[]:
+
+							# print(np.array(map(np.float, np.array(row))))
+							row_i = np.reshape(np.array(map(float, np.array(row))), (1, 4))
+							print(row_i)
+							# row_i = np.array((map(float, np.array(row))))
 							if line_counter == 1:
 								self.goals = row_i
 							else:
@@ -140,23 +147,24 @@ class GoalsFromCsv():
 			except Exception as e:
 				print(e)
 				self.read_flag = False
-		elif(self.newPath.data=="Triangle"):
-			try:
-				with open(self.csv_file_2) as csv_file:
-					self.goals_number=0
-					csv_reader = csv.reader(csv_file, delimiter=',')
-					for line_counter, row in enumerate(csv_reader):
-						if line_counter > 0:
-							row_i = np.reshape(map(float, np.array(row)), (1, 4))
-							if line_counter == 1:
-								self.goals = row_i
-							else:
-								self.goals = np.concatenate((self.goals, row_i))
-					self.goals_number = (self.goals.size/4)
-				self.read_flag = True
-			except Exception as e:
-				print(e)
-				self.read_flag = False
+				
+		# elif(self.newPath.data=="Triangle"):
+		# 	try:
+		# 		with open(self.csv_file_2) as csv_file:
+		# 			self.goals_number=0
+		# 			csv_reader = csv.reader(csv_file, delimiter=',')
+		# 			for line_counter, row in enumerate(csv_reader):
+		# 				if line_counter > 0:
+		# 					row_i = np.reshape(map(float, np.array(row)), (1, 4))
+		# 					if line_counter == 1:
+		# 						self.goals = row_i
+		# 					else:
+		# 						self.goals = np.concatenate((self.goals, row_i))
+		# 			self.goals_number = (self.goals.size/4)
+		# 		self.read_flag = True
+		# 	except Exception as e:
+		# 		print(e)
+		# 		self.read_flag = False
 		return
 
 	def get_current_goal(self):
@@ -208,8 +216,13 @@ class GoalsFromCsv():
 		elif status == 3:
 			self.rospy.loginfo("[%s] Reached Goal %d successfully", self.name, self.goal_id)
 			# self.rospy.loginfo("[%s] Pose: [x,y,qz,qw][[%f] [%f][%f][%f]]",self.name,self.x_bot,self.y_bot,self.qw_bot,self.qw_bot)
-			self.rospy.loginfo("[%s] Target Pose:  [x,y,theta] [[%f] [%f][%f]]",self.name,self.x_goal,self.y_goal,self.theta_goal)
-			self.rospy.loginfo("[%s] Robot Pose:  [x,y,theta] [[%f] [%f][%f]]",self.name,self.x_bot,self.y_bot,self.theta_bot)
+			self.rospy.loginfo("[%s] Target Pose:[x,y,theta] [[%f] [%f][%f]]",self.name,self.x_goal,self.y_goal,self.theta_goal)
+			self.rospy.loginfo("[%s] Robot Pose:[x,y,theta] [[%f] [%f][%f]]",self.name,self.x_bot,self.y_bot,self.theta_bot)
+			self.target_string.data="Target Pose:[x,y,theta] {} {} {}".format(self.x_goal,self.y_goal,self.theta_goal)
+			self.robot_string.data="Robot Pose:[x,y,theta] {} {} {}".format(self.x_bot,self.y_bot,self.theta_bot)
+			self.pub_result.publish(self.target_string)
+			self.pub_result.publish(self.robot_string)
+
 			# self.rospy.loginfo(" Goals number [%d] ", self.goals_number)
 			self.goal_id += 1
 			self.goal_published = False
